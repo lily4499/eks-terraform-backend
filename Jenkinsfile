@@ -8,9 +8,10 @@ pipeline {
         )
     }
     environment {
-        AWS_ACCESS_KEY_ID = credentials('aws-credentials') // ID of AWS Credentials
+        AWS_ACCESS_KEY_ID = credentials('aws-credentials') // AWS Credentials ID
         AWS_REGION = 'us-east-1'
         CLUSTER_NAME = 'eks_cluster'
+        CLUSTER_EXISTS = 'false' // Initialize to false
     }
 
     stages {
@@ -23,35 +24,32 @@ pipeline {
         }
 
         stage('Check Existing Resources') {
-    steps {
-        dir('eks') {
-            script {
-                def clusterExists = sh(
-                    script: "aws eks describe-cluster --name $CLUSTER_NAME --region $AWS_REGION > /dev/null 2>&1 || echo 'false'",
-                    returnStdout: true
-                ).trim()
-
-                if (params.ACTION == 'apply' && clusterExists == 'false') {
-                    echo 'Cluster does not exist. Proceeding with creation.'
-                } else if (params.ACTION == 'apply' && clusterExists != 'false') {
-                    echo 'Cluster already exists. Skipping Terraform apply stage.'
-                    currentBuild.result = 'SUCCESS'
-                } else if (params.ACTION == 'destroy') {
-                    echo 'Proceeding with destruction of resources.'
+            steps {
+                dir('eks') {
+                    script {
+                        // Check if the EKS cluster already exists
+                        def clusterExists = sh(
+                            script: "aws eks describe-cluster --name $CLUSTER_NAME --region $AWS_REGION > /dev/null 2>&1 && echo 'true' || echo 'false'",
+                            returnStdout: true
+                        ).trim()
+                        env.CLUSTER_EXISTS = clusterExists
+                        echo "Cluster exists: ${env.CLUSTER_EXISTS}"
+                    }
                 }
             }
         }
-    }
-}
-
 
         stage('Plan Infrastructure') {
             steps {
                 dir('eks') {
                     script {
-                        if (params.ACTION == 'apply') {
+                        if (params.ACTION == 'apply' && env.CLUSTER_EXISTS == 'false') {
+                            echo 'Cluster does not exist. Planning creation.'
                             sh 'terraform plan'
+                        } else if (params.ACTION == 'apply' && env.CLUSTER_EXISTS == 'true') {
+                            echo 'Cluster already exists. Skipping Terraform plan.'
                         } else if (params.ACTION == 'destroy') {
+                            echo 'Planning destruction of resources.'
                             sh 'terraform plan -destroy'
                         }
                     }
@@ -63,12 +61,14 @@ pipeline {
             steps {
                 dir('eks') {
                     script {
-                        if (params.ACTION == 'apply') {
+                        if (params.ACTION == 'apply' && env.CLUSTER_EXISTS == 'false') {
+                            echo 'Applying Terraform to create resources.'
                             sh 'terraform apply -auto-approve'
+                        } else if (params.ACTION == 'apply') {
+                            echo 'Skipping Terraform apply as the cluster already exists.'
                         } else if (params.ACTION == 'destroy') {
                             dir('app') {
                                 echo 'Deleting application from Kubernetes...'
-                                // Update kubeconfig and delete Kubernetes resources
                                 sh 'aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME'
                                 sh 'kubectl delete all --all'
                             }
@@ -81,7 +81,7 @@ pipeline {
 
         stage('Update Kubeconfig') {
             when {
-                expression { params.ACTION == 'apply' } // Only update kubeconfig for apply
+                expression { params.ACTION == 'apply' && env.CLUSTER_EXISTS == 'false' } // Only update kubeconfig for new clusters
             }
             steps {
                 echo 'Updating kubeconfig for EKS cluster...'
@@ -95,6 +95,7 @@ pipeline {
             }
             steps {
                 dir('app') {
+                    echo 'Deploying application to Kubernetes...'
                     sh 'kubectl apply -f deployment.yaml'
                     sh 'kubectl apply -f service.yaml'
                 }
@@ -112,7 +113,6 @@ pipeline {
         }
     }
 }
-
 
 
 
