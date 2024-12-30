@@ -23,26 +23,27 @@ pipeline {
         }
 
         stage('Check Existing Resources') {
-            steps {
-                dir('eks') {
-                    script {
-                        // Add a check to see if the EKS cluster already exists
-                        def clusterExists = sh(
-                            script: "aws eks describe-cluster --name $CLUSTER_NAME --region $AWS_REGION > /dev/null 2>&1 || echo 'false'",
-                            returnStdout: true
-                        ).trim()
+    steps {
+        dir('eks') {
+            script {
+                def clusterExists = sh(
+                    script: "aws eks describe-cluster --name $CLUSTER_NAME --region $AWS_REGION > /dev/null 2>&1 || echo 'false'",
+                    returnStdout: true
+                ).trim()
 
-                        if (params.ACTION == 'apply' && clusterExists == 'false') {
-                            echo 'Cluster does not exist. Proceeding with creation.'
-                        } else if (params.ACTION == 'apply' && clusterExists != 'false') {
-                            error('Cluster already exists. Terraform will not attempt to recreate.')
-                        } else if (params.ACTION == 'destroy') {
-                            echo 'Proceeding with destruction of resources.'
-                        }
-                    }
+                if (params.ACTION == 'apply' && clusterExists == 'false') {
+                    echo 'Cluster does not exist. Proceeding with creation.'
+                } else if (params.ACTION == 'apply' && clusterExists != 'false') {
+                    echo 'Cluster already exists. Skipping Terraform apply stage.'
+                    currentBuild.result = 'SUCCESS'
+                } else if (params.ACTION == 'destroy') {
+                    echo 'Proceeding with destruction of resources.'
                 }
             }
         }
+    }
+}
+
 
         stage('Plan Infrastructure') {
             steps {
