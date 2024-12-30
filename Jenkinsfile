@@ -9,6 +9,8 @@ pipeline {
     }
     environment {
         AWS_ACCESS_KEY_ID = credentials('aws-credentials') // ID of AWS Credentials
+        AWS_REGION = 'us-east-1'
+        CLUSTER_NAME = 'eks_cluster'
     }
 
     stages {
@@ -43,12 +45,24 @@ pipeline {
                         } else if (params.ACTION == 'destroy') {
                             dir('app') {
                                 echo 'Deleting application from Kubernetes...'
+                                // Update kubeconfig and delete Kubernetes resources
+                                sh 'aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME'
                                 sh 'kubectl delete all --all'
                             }
                             sh 'terraform destroy -auto-approve'
                         }
                     }
                 }
+            }
+        }
+
+        stage('Update Kubeconfig') {
+            when {
+                expression { params.ACTION == 'apply' } // Only update kubeconfig for apply
+            }
+            steps {
+                echo 'Updating kubeconfig for EKS cluster...'
+                sh 'aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME'
             }
         }
 
@@ -75,6 +89,7 @@ pipeline {
         }
     }
 }
+
 
 
 
