@@ -52,6 +52,18 @@ pipeline {
             }
         }
 
+        stage('Authenticate with EKS') {
+            when {
+                expression { params.ACTION == 'apply' } // Authenticate only when the action is 'apply'
+            }
+            steps {
+                script {
+                    echo 'Authenticating with EKS cluster...'
+                    sh 'aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME'
+                }
+            }
+        }
+        
         stage('Deploy Application') {
             when {
                 expression { params.ACTION == 'apply' } // Only deploy when the action is 'apply'
