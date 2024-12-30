@@ -9,6 +9,8 @@ pipeline {
     }
     environment {
         AWS_ACCESS_KEY_ID = credentials('aws-credentials') // ID of AWS Credentials
+        AWS_REGION = 'us-east-1' // Define the AWS region explicitly
+        CLUSTER_NAME = 'eks_cluster' // Define your EKS cluster name
     }
 
     stages {
