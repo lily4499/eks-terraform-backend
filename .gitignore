@@ -1,0 +1,39 @@
+# Terraform state files
+terraform.tfstate
+terraform.tfstate.*
+
+# Crash log files
+crash.log
+
+# Ignore Terraform lock file (optional, if shared state is not used)
+.terraform.lock.hcl
+
+# Ignore the .terraform directory (Terraform plugins and modules)
+.terraform/
+
+# Sensitive files (store secrets in a secure vault, not in your repository)
+*.tfvars
+*.tfvars.json
+
+# Ignore local environment files
+*.env
+*.env.*
+
+# Ignore temporary files and directories
+*.backup
+*.log
+*.tmp
+*.swp
+*.bak
+*.old
+.DS_Store
+Thumbs.db
+
+# Ignore editor/IDE specific files
+.vscode/
+.idea/
+*.iml
+
+# Exclude notes or personal files
+notes.txt
+
