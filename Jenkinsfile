@@ -64,16 +64,6 @@ pipeline {
             }
         }
     }
-
-    post {
-        always {
-            echo 'Cleaning up workspace...'
-            cleanWs()
-        }
-        failure {
-            echo 'Build failed. Check logs for details.'
-        }
-    }
 }
 
 
