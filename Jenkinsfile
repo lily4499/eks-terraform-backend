@@ -17,7 +17,7 @@ pipeline {
     stages {
         stage('Initialize Terraform') {
             steps {
-                dir('eks') { // Navigate to the eks directory
+                dir('eks') {
                     sh 'terraform init'
                 }
             }
@@ -28,12 +28,18 @@ pipeline {
                 dir('eks') {
                     script {
                         // Check if the EKS cluster already exists
-                        def clusterExists = sh(
+                        def clusterCheck = sh(
                             script: "aws eks describe-cluster --name $CLUSTER_NAME --region $AWS_REGION > /dev/null 2>&1 && echo 'true' || echo 'false'",
                             returnStdout: true
                         ).trim()
-                        env.CLUSTER_EXISTS = clusterExists
-                        echo "Cluster exists: ${env.CLUSTER_EXISTS}"
+
+                        if (clusterCheck == 'true') {
+                            env.CLUSTER_EXISTS = 'true'
+                            echo "Cluster exists: true"
+                        } else {
+                            env.CLUSTER_EXISTS = 'false'
+                            echo "Cluster exists: false"
+                        }
                     }
                 }
             }
@@ -81,7 +87,7 @@ pipeline {
 
         stage('Update Kubeconfig') {
             when {
-                expression { params.ACTION == 'apply' && env.CLUSTER_EXISTS == 'false' } // Only update kubeconfig for new clusters
+                expression { params.ACTION == 'apply' && env.CLUSTER_EXISTS == 'false' }
             }
             steps {
                 echo 'Updating kubeconfig for EKS cluster...'
@@ -91,7 +97,7 @@ pipeline {
 
         stage('Deploy Application') {
             when {
-                expression { params.ACTION == 'apply' } // Only deploy when the action is 'apply'
+                expression { params.ACTION == 'apply' }
             }
             steps {
                 dir('app') {
@@ -113,7 +119,6 @@ pipeline {
         }
     }
 }
-
 
 
 
